@@ -3,7 +3,20 @@ from flask_cors import CORS
 import requests
 
 app = Flask(__name__)
-CORS(app)
+CORS(
+    app,
+    resources={
+        r"/convert": {
+            "origins": [
+                "https://rate-flow-olive.vercel.app",
+                "http://localhost:5173",
+                "http://127.0.0.1:5173",
+            ]
+        }
+    },
+    methods=["POST", "OPTIONS"],
+    allow_headers=["Content-Type"],
+)
 
 ALLOWED_CURRENCIES = ["USD", "EUR", "TRY", "GBP"]
 FRANKFURTER_URL = "https://api.frankfurter.app/latest"
@@ -14,7 +27,7 @@ def home():
     return jsonify({"message": "RateFlow backend calisiyor"})
 
 
-@app.route("/convert", methods=["POST"])
+@app.route("/convert", methods=["POST", "OPTIONS"])
 def convert_currency():
     data = request.get_json(silent=True)
 
