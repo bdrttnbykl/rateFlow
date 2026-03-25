@@ -1,5 +1,7 @@
 from flask import Flask, jsonify, request
 import requests
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
 
 app = Flask(__name__)
 
@@ -11,6 +13,16 @@ ALLOWED_ORIGINS = {
 
 ALLOWED_CURRENCIES = ["USD", "EUR", "TRY", "GBP"]
 FRANKFURTER_URL = "https://api.frankfurter.app/latest"
+REQUEST_TIMEOUT_SECONDS = 20
+
+session = requests.Session()
+retry_strategy = Retry(
+    total=2,
+    backoff_factor=1,
+    status_forcelist=[429, 500, 502, 503, 504],
+    allowed_methods=["GET"],
+)
+session.mount("https://", HTTPAdapter(max_retries=retry_strategy))
 
 
 @app.after_request
@@ -56,13 +68,15 @@ def convert_currency():
         return jsonify({"error": "Miktar negatif olamaz"}), 400
 
     try:
-        response = requests.get(
+        response = session.get(
             FRANKFURTER_URL,
             params={"from": base, "to": quote},
-            timeout=10,
+            timeout=REQUEST_TIMEOUT_SECONDS,
         )
         response.raise_for_status()
         api_data = response.json()
+    except requests.Timeout:
+        return jsonify({"error": "Doviz servisi zaman asimina ugradi"}), 504
     except requests.RequestException:
         return jsonify({"error": "Doviz verisi alinamadi"}), 500
 
