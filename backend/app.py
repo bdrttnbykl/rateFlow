@@ -14,6 +14,7 @@ ALLOWED_ORIGINS = {
 ALLOWED_CURRENCIES = ["USD", "EUR", "TRY", "GBP"]
 FRANKFURTER_URL = "https://api.frankfurter.app/latest"
 REQUEST_TIMEOUT_SECONDS = 20
+rate_cache = {}
 
 session = requests.Session()
 retry_strategy = Retry(
@@ -67,6 +68,8 @@ def convert_currency():
     if amount < 0:
         return jsonify({"error": "Miktar negatif olamaz"}), 400
 
+    cache_key = f"{base}:{quote}"
+
     try:
         response = session.get(
             FRANKFURTER_URL,
@@ -75,10 +78,28 @@ def convert_currency():
         )
         response.raise_for_status()
         api_data = response.json()
+        fetched_rate = api_data.get("rates", {}).get(quote)
+        if fetched_rate is not None:
+            rate_cache[cache_key] = {
+                "rate": float(fetched_rate),
+                "date": api_data.get("date"),
+            }
     except requests.Timeout:
-        return jsonify({"error": "Doviz servisi zaman asimina ugradi"}), 504
+        cached_rate = rate_cache.get(cache_key)
+        if cached_rate is None:
+            return jsonify({"error": "Doviz servisi zaman asimina ugradi"}), 504
+        api_data = {
+            "date": cached_rate["date"],
+            "rates": {quote: cached_rate["rate"]},
+        }
     except requests.RequestException:
-        return jsonify({"error": "Doviz verisi alinamadi"}), 500
+        cached_rate = rate_cache.get(cache_key)
+        if cached_rate is None:
+            return jsonify({"error": "Doviz verisi alinamadi"}), 500
+        api_data = {
+            "date": cached_rate["date"],
+            "rates": {quote: cached_rate["rate"]},
+        }
 
     rates = api_data.get("rates", {})
     rate = rates.get(quote)
