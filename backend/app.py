@@ -1,25 +1,28 @@
 from flask import Flask, jsonify, request
-from flask_cors import CORS
 import requests
 
 app = Flask(__name__)
-CORS(
-    app,
-    resources={
-        r"/convert": {
-            "origins": [
-                "https://rate-flow-olive.vercel.app",
-                "http://localhost:5173",
-                "http://127.0.0.1:5173",
-            ]
-        }
-    },
-    methods=["POST", "OPTIONS"],
-    allow_headers=["Content-Type"],
-)
+
+ALLOWED_ORIGINS = {
+    "https://rate-flow-olive.vercel.app",
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+}
 
 ALLOWED_CURRENCIES = ["USD", "EUR", "TRY", "GBP"]
 FRANKFURTER_URL = "https://api.frankfurter.app/latest"
+
+
+@app.after_request
+def add_cors_headers(response):
+    origin = request.headers.get("Origin")
+    if origin in ALLOWED_ORIGINS:
+        response.headers["Access-Control-Allow-Origin"] = origin
+        response.headers["Vary"] = "Origin"
+
+    response.headers["Access-Control-Allow-Methods"] = "POST, OPTIONS"
+    response.headers["Access-Control-Allow-Headers"] = "Content-Type"
+    return response
 
 
 @app.route("/")
@@ -29,6 +32,9 @@ def home():
 
 @app.route("/convert", methods=["POST", "OPTIONS"])
 def convert_currency():
+    if request.method == "OPTIONS":
+        return ("", 204)
+
     data = request.get_json(silent=True)
 
     if not data:
