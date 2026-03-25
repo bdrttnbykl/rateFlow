@@ -3,7 +3,9 @@ import type { FormEvent } from 'react'
 import './App.css'
 
 const currencies = ['USD', 'EUR', 'TRY', 'GBP'] as const
-const API_URL = '/convert'
+const API_BASE_URL =
+  import.meta.env.VITE_API_URL?.replace(/\/$/, '') ?? window.location.origin
+const API_URL = API_BASE_URL.includes('localhost') ? '/convert' : `${API_BASE_URL}/convert`
 
 type Currency = (typeof currencies)[number]
 
